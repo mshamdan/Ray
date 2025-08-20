@@ -10,8 +10,6 @@ from scipy.interpolate import interp1d
 from warnings import warn
 
 
-
-
 class RayTracing(Surface,Glass,tools):
     def __init__(self, wl_um:float=0.58756, beam_radius:float=1, object_height:float=0,Ent_radius:float=0, Ent_material:str='air', Obj_2_Ent_tickness:float= 1e20, Ent_thickness:float=0, Ent_aperture:float=1e20, Ent_surface_type:str='sph', Ent_conic:float=0,Ent_A_list:list=[]):
         Surface.__init__(self, Ent_radius, Ent_material, Obj_2_Ent_tickness, Ent_thickness, Ent_aperture, Ent_surface_type, Ent_conic,Ent_A_list)
@@ -172,27 +170,37 @@ class RayTracing(Surface,Glass,tools):
             return Rays_Result
 
     def _ast_solved_check(self,marginal_ang_tol=1e-6, ST_Active:bool=False):
-            if self.u_marg==None and self.y_marg==None:
+            # print(1)
+            if all([self.u_marg==None , self.y_marg==None]) or ST_Active!=self.active_stop:
+                # print(2)
                 if self.Obj2ENT<1e4:
+                    # print(3)
                     self.AST_surface,u= self.find_AST(tol=marginal_ang_tol,ST_Active=ST_Active)
                     self.u_marg=u
                 else:
+                    # print(4)
                     self.AST_surface,y= self.find_AST(tol=marginal_ang_tol,ST_Active=ST_Active)
                     self.y_marg=y
-
+                # print(5)
                 self.Surfaces_copy=self.Surfaces.copy(deep=True)
                 self.active_stop= ST_Active
                 return True
             
             else:
-                if not ST_Active:
-                    if not all(self.Surfaces.iloc[:8,:]==self.Surfaces_copy.iloc[:8,:]) or self.active_stop:
+                # print(6)
+                if ST_Active:
+                    # print(7)
+                    if not  self.Surfaces.iloc[:10,:].equals(self.Surfaces_copy.iloc[:10,:]):
+                        # print(8)
                         if self.Obj2ENT<1e4:
+                            # print(9)
                             self.AST_surface,u= self.find_AST(tol=marginal_ang_tol,ST_Active=ST_Active)
                             self.u_marg=u
                         else:
+                            # print(10)
                             self.AST_surface,y= self.find_AST(tol=marginal_ang_tol,ST_Active=ST_Active)
                             self.y_marg=y
+                        # print(11)
                         self.Surfaces_copy=self.Surfaces.copy(deep=True)
                         self.active_stop= ST_Active
                 
@@ -200,17 +208,23 @@ class RayTracing(Surface,Glass,tools):
 
 
                 else:
-                    print(all(self.Surfaces.iloc[:10,:]==self.Surfaces_copy.iloc[:10,:]))
-                    if not all(self.Surfaces.iloc[:10,:]==self.Surfaces_copy.iloc[:10,:]) or not self.active_stop:
+                    # print(12)
+
+                    if not self.Surfaces.iloc[:8,:].equals(self.Surfaces_copy.iloc[:8,:]):
+                        # print(13)
                         if self.Obj2ENT<1e4:
                             self.AST_surface,u= self.find_AST(tol=marginal_ang_tol,ST_Active=ST_Active)
                             self.u_marg=u
+                            # print(14)
                         else:
+                            # print(15)
                             self.AST_surface,y= self.find_AST(tol=marginal_ang_tol,ST_Active=ST_Active)
                             self.y_marg=y
+                        # print(16)
                         self.Surfaces_copy=self.Surfaces.copy(deep=True)
                         self.active_stop= ST_Active
                         return True
+            # print(17)
             return False
 
 
@@ -257,6 +271,7 @@ class RayTracing(Surface,Glass,tools):
         if Results is None:
             Ray_Result= self.Solve_System(n_rays=n_rays,solver=solver, intersection_method=intersection_method,ST_Active=ST_Active,
                                           tol=tol, marginal_ang_tol=marginal_ang_tol, u_rad=u_rad, y_mm=y_mm, h_obj=h_obj, FOV_deg=FOV_deg,chief_guess=chief_guess)
+        print(Ray_Result[0].Y_mm.values)
         dz= self.Obj2ENT
         if not show_obj:
             dz=0
@@ -287,12 +302,12 @@ class RayTracing(Surface,Glass,tools):
 
                     # print([0, z_int_mm[0]], [h_obj, y_init])
                     ax.plot([0, z_int_mm[0]], [h_obj, y_init], linestyle=linestyle,color=ray_color)
-           
+                
 ###############################################
             if ST_Active and solver.lower() not in ['marginal', 'm', 'marg']:
                 z_int_mm, y_mm,_= self._check_stop(result, self.Surfaces.copy(deep=True), dz)
 
-
+            print(y_mm)
             ax.plot(z_int_mm, y_mm, linestyle=linestyle,color=ray_color)
         
         return fig, ax, Ray_Result
@@ -316,7 +331,7 @@ class RayTracing(Surface,Glass,tools):
         return fig, ax, Ray_Result
 
     def _check_stop(self, result, Surfaces, dz=0):
-        surface_res= Surfaces
+        surface_res= Surfaces.keys().values
         z_int_mm= cumsum(result.Z_int_mm.values)+dz
         y_mm=result.Y_mm.values
         func= interp1d(z_int_mm, y_mm)
@@ -336,6 +351,7 @@ class RayTracing(Surface,Glass,tools):
 
         for (S,z_ap) in zip(Ss, Z_ap):
             R= S.radius
+            surface_name=S.surface_name
             t= S.thickness
             ap= S.aperture
             mat= S.material
@@ -362,9 +378,13 @@ class RayTracing(Surface,Glass,tools):
                 z_int_mm= [i for i in z_int_mm if i <=z_ap]
                 surface_res= [surf_keys[w] for w,i in enumerate(z_int_mm) if i <=z_ap]
                 len_diff= len(surf_keys)- len(z_int_mm)
+                if z_ap not in z_int_mm:
+                    z_int_mm+=[z_ap]
+                    surface_res+= [S.name]
                 if len_diff>0:
                     for i in range(len_diff):
                         z_int_mm+=[nan]
+
                 y_mm= func(z_int_mm)
                 break 
         # print(z_int_mm, y_mm, surface_res)
@@ -421,7 +441,7 @@ class RayTracing(Surface,Glass,tools):
         ERR_ap=[]
         
         if ST_Active:
-            max_angle_res= max_angle
+            max_angle_res= max_angle+.1
             tol= tol_copy
             
             while True:
@@ -578,7 +598,7 @@ class RayTracing(Surface,Glass,tools):
         ERR_ap=[]
         
         if ST_Active:
-            max_height_res= max_height
+            max_height_res= max_height+.5
             tol= tol_copy
             
             while True:
@@ -691,14 +711,21 @@ class RayTracing(Surface,Glass,tools):
             err= min(abs(abs(Surfaces.iloc[3,:].values[1:])-abs(Result[0].Y_mm.values)))
             # idx_ast= argmin(abs(abs(Surfaces.iloc[3,:].values[1:])-abs(Result[0].Y_mm.values)))
             # self.AST_surface= Surfaces.keys()[int(idx_ast)+1]
+            # print(max_angle+1e-3)
             Rays_Result= self._default_solver_systm(n_rays=1, u_rad=max_angle+1e-3,h_obj=0)
             if not ST_Active:
-                idx_ast= where(isnan(Rays_Result[0].Y_mm))[0][0]
+                # print(1, Rays_Result[0].Y_mm.values)
+                idx_ast= where(isnan(Rays_Result[0].Y_mm.values))[0][0]
                 self.AST_surface= Rays_Result[0].index.values[int(idx_ast-1)]
 
             else:
+                # print(2, Rays_Result[0].Y_mm.values)
+                # print(Rays_Result[0])
+                # print(Rays_Result[0])
                 _, y_mm, surfaces= self._check_stop( Rays_Result[0], Surfaces)
-                self.AST_surface= surfaces[-1]
+                # print(y_mm)
+                idx_ast= where(isnan(y_mm))[0][0]
+                self.AST_surface= surfaces[int(idx_ast-1)]
             
             if self.AST_surface=='ent':
                 if not Surfaces.ent.stop:
@@ -1032,20 +1059,20 @@ class RayTracing(Surface,Glass,tools):
 
         #             # if any([(R<0 and mat.lower()!='air'),(R>=0 and mat.lower()!='air')]):
         #             #     t_surf= 0
-        #             #     s=int(where(Surfaces2.keys().values==surf.name)[0][0])+1
+        #             #     s=int(where(Surfaces2.keys().values==surf.surface_name)[0][0])+1
         #             #     if s!='ent':
-        #             #         idx= int(where(Surfaces2.keys().values==surf.name)[0][0])
+        #             #         idx= int(where(Surfaces2.keys().values==surf.surface_name)[0][0])
 
         #             # else:
         #             #     t_surf=t
         #             #     surf.thickness=0
-        #             #     idx=int(where(Surfaces2.keys().values==surf.name)[0][0])+1
+        #             #     idx=int(where(Surfaces2.keys().values==surf.surface_name)[0][0])+1
                         
 
         #             if any([(R<=0 and mat.lower()!='air'),(R>=0 and mat.lower()!='air')]):
         #                 t_surf=t
         #                 surf.thickness=0
-        #                 idx=int(where(Surfaces2.keys().values==surf.name)[0][0])+1
+        #                 idx=int(where(Surfaces2.keys().values==surf.surface_name)[0][0])+1
 
         #             else:
         #                 yyy= abs(R)-1e-10
@@ -1056,11 +1083,11 @@ class RayTracing(Surface,Glass,tools):
         #                 else:
         #                     t_surf= self.sag_spherical(yyy, R, 0)#
                         
-        #                 idx=int(where(Surfaces2.keys().values==surf.name)[0][0])+1
+        #                 idx=int(where(Surfaces2.keys().values==surf.surface_name)[0][0])+1
         #                 Surfaces2[Surfaces2.keys().values[idx-1]].thickness-=t_surf
                     
         #             # surf.thickness=0
-        #             add_surface= {'name':f'{surf.name}_ast',
+        #             add_surface= {'surface_name':f'{surf.surface_name}_ast',
         #                         'radius': 0,
         #                         'thickness': t_surf,
         #                         'aperture': stop_size, 
@@ -1072,7 +1099,7 @@ class RayTracing(Surface,Glass,tools):
         #                         'stop_size':stop_size,
         #                         'ast':False}
 
-        #             Surfaces2.insert(idx, f'{surf.name}_ast', add_surface)
+        #             Surfaces2.insert(idx, f'{surf.surface_name}_ast', add_surface)
                     
         #     return Surfaces2
 
@@ -1098,7 +1125,7 @@ class RayTracing(Surface,Glass,tools):
         #     ast_idx= int(argwhere(Surfaces.iloc[-1,:].values)[0][0])
 
         #     Surfaces_AST= Surfaces.iloc[:, :ast_idx].copy(deep=True)
-        #     Surfaces_AST['AST']={'name':'AST', 'radius':0, 'thickness':0, 'aperture':self.AST_size, 'material':'air', 'type':'sph', 'conic':0, 'A_coefficient':0, 'ast':False}
+        #     Surfaces_AST['AST']={'surface_name':'AST', 'radius':0, 'thickness':0, 'aperture':self.AST_size, 'material':'air', 'type':'sph', 'conic':0, 'A_coefficient':0, 'ast':False}
             
 
         #     def f(u0):
@@ -1300,7 +1327,7 @@ class RayTracing(Surface,Glass,tools):
 
         #     As= [(-array(a)).tolist() for a in Surfaces_AST.iloc[7, :].values]
         #     Surfaces_AST.iloc[7, :]= As
-        #     Surfaces_AST['AST']={'name':'AST', 'radius':0, 'thickness':0, 'aperture':self.AST_size, 'material':'air', 'type':'sph', 'conic':0, 'A_coefficient':0, 'ast':False}
+        #     Surfaces_AST['AST']={'surface_name':'AST', 'radius':0, 'thickness':0, 'aperture':self.AST_size, 'material':'air', 'type':'sph', 'conic':0, 'A_coefficient':0, 'ast':False}
         #     Surfaces_AST.obj.type='sph'
         #     Surfaces_AST= Surfaces_AST.iloc[:,::-1]
         #     # return Surfaces_AST

@@ -28,7 +28,7 @@ class Surface(ZMXreader):
         else:
             raise ValueError(f"Suface Type{Ent_surface_type} is not valid, it must be eihter sph or asph")
         
-        self.object_surface={'name': 'obj',
+        self.object_surface={'surface_name': 'obj',
                              'radius': 0,
                              'thickness': Obj_2_Ent_tickness,
                              'aperture': 1e10, 
@@ -40,7 +40,7 @@ class Surface(ZMXreader):
                              'stop_size':1e10,
                              'ast':False}
         
-        self.Ent_surface={'name': 'ent',
+        self.Ent_surface={'surface_name': 'ent',
                         'radius': Ent_radius,
                         'thickness': Ent_thickness,
                         'aperture': Ent_aperture, 
@@ -52,7 +52,7 @@ class Surface(ZMXreader):
                         'stop_size':Ent_aperture,
                         'ast':False}   
 
-        self.image_surface={'name':'ims',
+        self.image_surface={'surface_name':'ims',
                             'radius': 0,
                             'thickness': 0,
                             'aperture': 1e10, 
@@ -70,7 +70,7 @@ class Surface(ZMXreader):
         self.manual_AS=False 
 
 
-    def add_surface(self, curvature_radius:float, thickness:float, aperture_Radius:float, material:str, surface_type:str, k_conic:float=0, A_coeff:list=[], stop_iris= False, stop_size=None, name:str=""): 
+    def add_surface(self, curvature_radius:float, thickness:float, aperture_Radius:float, material:str, surface_type:str, k_conic:float=0, A_coeff:list=[], stop_iris= False, stop_size=None, surface_name:str=""): 
         if surface_type.lower() in ['sphere', 'spheric', 'spherical', 'sph']:
             surface_type='sph'
         
@@ -84,18 +84,18 @@ class Surface(ZMXreader):
         
         for key in list(self.Surfaces.keys()):
             surf= self.Surfaces[key]
-            if surf['name']=='ims':
+            if surf['surface_name']=='ims':
                 surf_cnt -= 1
                 self.Surfaces.pop(key)
 
-        if name=="":
-            name=f"surface{surf_cnt}"
+        if surface_name=="":
+            surface_name=f"surface{surf_cnt}"
 
         if stop_size==None:
             stop_size= aperture_Radius
 
 
-        surface= {'name':name,
+        surface= {'surface_name':surface_name,
                   'radius': curvature_radius,
                   'thickness': thickness,
                   'aperture': aperture_Radius, 

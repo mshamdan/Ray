@@ -816,7 +816,7 @@ class tools:
         surface_type= surf_nxt.type
         mat_nxt= surf_nxt.material
 
-        if surf_nxt.loc['name']=='ims':
+        if surf_nxt.loc['surface_name']=='ims':
 
             return self.transfer(y0,u0, z+surf_nxt.thickness), u0,z+surf_nxt.thickness, 0
         
