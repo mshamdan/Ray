@@ -44,6 +44,7 @@ class RayTracing(Surface,Glass,tools):
         self.h_obj_chief=None
         self.y_chief=None
         self.check_chief= True
+        self.h_obj_arb=None
 
 
     def _default_solver_systm(self, n_rays:int=3, intersection_method='distance', tol=1e-10, Surfaces= None, u_rad=None, y_mm= None, h_obj=None, FOV_deg=None):
@@ -62,7 +63,7 @@ class RayTracing(Surface,Glass,tools):
             warn(f"Both h_obj and FOV_dg are not None, you allowed to pass either of them!", UserWarning)
             h_obj= self.h_obj
 
-
+        # print(h_obj)
         if u_rad==None and y_mm== None:
             y0_new= self.y0
         else:
@@ -110,7 +111,6 @@ class RayTracing(Surface,Glass,tools):
             # Results.index=[s.upper() for s in surfaces_keys[1:]]
             Rays_Result.append(Results)
         return Rays_Result
-
 
 
     def Solve_System(self, n_rays:int=3, solver:str='default',intersection_method='distance',ST_Active:bool=False,
@@ -162,48 +162,57 @@ class RayTracing(Surface,Glass,tools):
                 raise ValueError("No angle was passed u_rad is None and No height was passed y_mm is None")
             if u_rad!=None and y_mm!=None:
                 raise ValueError(f"both arbitrary angle and arbitrary height were passed, pass only one of them! u_rad: {u_rad}, y_mm: {y_mm}")
-            Rays_Result= self._default_solver_systm(n_rays, intersection_method, tol, u_rad=u_rad, y_mm=y_mm)
+            Rays_Result= self._default_solver_systm(n_rays, intersection_method, tol, u_rad=u_rad, y_mm=y_mm,h_obj=h_obj, FOV_deg=FOV_deg)
+            if h_obj==None and FOV_deg==None:
+                self.h_obj_arb= self.h_obj
+            
+            elif h_obj==None and FOV_deg!=None:
+                self.h_obj_arb= self.obj_height_from_FOV(FOV_deg)
+            else:
+                self.h_obj_arb= h_obj
+            
             if u_rad!=None:
-                self.y_arb = self.h_obj+ (tan(u_rad)*self.Obj2ENT)
+                self.y_arb = self.h_obj_arb+ (tan(u_rad)*self.Obj2ENT)
             else:
                 self.y_arb = y_mm
-        
+            
             return Rays_Result
 
+
     def _ast_solved_check(self,marginal_ang_tol=1e-6, ST_Active:bool=False):
-            # print(1)
+            # # print(1)
             if all([self.u_marg==None , self.y_marg==None]) or ST_Active!=self.active_stop:
                 
-                # print(2)
+                # # print(2)
                 if self.Obj2ENT<1e4:
-                    # print(3)
+                    # # print(3)
                     self.AST_surface,u= self.find_AST(tol=marginal_ang_tol,ST_Active=ST_Active)
                     self.u_marg=u
                 else:
-                    # print(4)
+                    # # print(4)
                     self.AST_surface,y= self.find_AST(tol=marginal_ang_tol,ST_Active=ST_Active)
                     self.y_marg=y
-                # print(5)
+                # # print(5)
                 self.Surfaces_copy=self.Surfaces.copy(deep=True)
                 self.active_stop= ST_Active
                 self.check_chief= True
                 return True
             
             else:
-                # print(6)
+                # # print(6)
                 if ST_Active:
-                    # print(7)
+                    # # print(7)
                     if not  self.Surfaces.iloc[:10,:].equals(self.Surfaces_copy.iloc[:10,:]):
-                        # print(8)
+                        # # print(8)
                         if self.Obj2ENT<1e4:
-                            # print(9)
+                            # # print(9)
                             self.AST_surface,u= self.find_AST(tol=marginal_ang_tol,ST_Active=ST_Active)
                             self.u_marg=u
                         else:
-                            # print(10)
+                            # # print(10)
                             self.AST_surface,y= self.find_AST(tol=marginal_ang_tol,ST_Active=ST_Active)
                             self.y_marg=y
-                        # print(11)
+                        # # print(11)
                         self.Surfaces_copy=self.Surfaces.copy(deep=True)
                         self.active_stop= ST_Active
                         self.check_chief= True
@@ -211,24 +220,24 @@ class RayTracing(Surface,Glass,tools):
 
 
                 else:
-                    # print(12)
+                    # # print(12)
 
                     if not self.Surfaces.iloc[:8,:].equals(self.Surfaces_copy.iloc[:8,:]):
-                        # print(13)
+                        # # print(13)
                         if self.Obj2ENT<1e4:
                             self.AST_surface,u= self.find_AST(tol=marginal_ang_tol,ST_Active=ST_Active)
                             self.u_marg=u
-                            # print(14)
+                            # # print(14)
                         else:
-                            # print(15)
+                            # # print(15)
                             self.AST_surface,y= self.find_AST(tol=marginal_ang_tol,ST_Active=ST_Active)
                             self.y_marg=y
-                        # print(16)
+                        # # print(16)
                         self.Surfaces_copy=self.Surfaces.copy(deep=True)
                         self.active_stop= ST_Active
                         self.check_chief= True
                         return True
-            # print(17)
+            # # print(17)
             return False
 
 
@@ -236,7 +245,7 @@ class RayTracing(Surface,Glass,tools):
 
 
         if self._ast_solved_check(ST_Active=ST_Active) or self.check_chief:
-            # print(11)
+            # # print(11)
             y0, h_obj, err= self.find_max_height_chief( fov_deg=FOV_deg, marginal_ang_tol=marginal_ang_tol, tol=tol, ST_Active=ST_Active, chief_guess=chief_guess)
             self.FOV_deg= FOV_deg
             self.h_obj_chief=h_obj
@@ -244,7 +253,7 @@ class RayTracing(Surface,Glass,tools):
             self.check_chief= False
 
         elif all([self.FOV_deg== None, self.h_obj_chief==None]) or self.y_chief==None or self.check_chief:
-            # print(22)
+            # # print(22)
             y0, h_obj, err= self.find_max_height_chief( fov_deg=FOV_deg, marginal_ang_tol=marginal_ang_tol, tol=tol, ST_Active=ST_Active, chief_guess=chief_guess)
             self.FOV_deg= FOV_deg
             self.h_obj_chief=h_obj
@@ -252,7 +261,7 @@ class RayTracing(Surface,Glass,tools):
             self.check_chief= False
         
         elif self.FOV_deg!=FOV_deg or self.check_chief:
-            # print(33)
+            # # print(33)
             y0, h_obj, err= self.find_max_height_chief( fov_deg=FOV_deg, marginal_ang_tol=marginal_ang_tol, tol=tol, ST_Active=ST_Active, chief_guess=chief_guess)
             self.FOV_deg= FOV_deg
             self.h_obj_chief=h_obj
@@ -260,14 +269,13 @@ class RayTracing(Surface,Glass,tools):
             self.check_chief= False
         
         elif all([self.FOV_deg==None , self.h_obj_chief!= self.h_obj]) or self.check_chief:
-            # print(44)
+            # # print(44)
             y0, h_obj, err= self.find_max_height_chief( fov_deg=FOV_deg, marginal_ang_tol=marginal_ang_tol, tol=tol, ST_Active=ST_Active, chief_guess=chief_guess)
             self.FOV_deg= FOV_deg
             self.h_obj_chief=h_obj
             self.y_chief=y0
             self.check_chief= False
         
-
 
     def _plot_system(self,fig=None, ax=None, n_rays:int=3,ST_Active:bool=True,show_obj:bool=False, show_img:bool=True, 
                      lens_layout:bool=True, linestyle:str='-', ray_color:str='r',obj_col:str='orange', figsize=(10,4), 
@@ -280,11 +288,11 @@ class RayTracing(Surface,Glass,tools):
             fig,ax= subplots(figsize=figsize, tight_layout=True)
 
         Ray_Result=Results
-        # # print('Results', Results)
+        # # # print('Results', Results)
         if Results is None:
             Ray_Result= self.Solve_System(n_rays=n_rays,solver=solver, intersection_method=intersection_method,ST_Active=ST_Active,
                                           tol=tol, marginal_ang_tol=marginal_ang_tol, u_rad=u_rad, y_mm=y_mm, h_obj=h_obj, FOV_deg=FOV_deg,chief_guess=chief_guess)
-        # # print(Ray_Result[0].Y_mm.values)
+        # # # print(Ray_Result[0].Y_mm.values)
         dz= self.Obj2ENT
         if not show_obj:
             dz=0
@@ -298,7 +306,7 @@ class RayTracing(Surface,Glass,tools):
                     h_obj=0
                     n_rays=2
                     y_0= self.y_marg
-                    # # print(h_obj, y_init)
+                    # # # print(h_obj, y_init)
                     
                 if solver.lower() in ['chief']:
                     n_rays=1
@@ -312,8 +320,9 @@ class RayTracing(Surface,Glass,tools):
 
                     if solver.lower() in ['arbitrary']:
                         y_init= self.y_arb*ray
+                        h_obj= self.h_obj_arb
 
-                    # # print([0, z_int_mm[0]], [h_obj, y_init])
+                    # # # print([0, z_int_mm[0]], [h_obj, y_init])
                     ax.plot([0, z_int_mm[0]], [h_obj, y_init], linestyle=linestyle,color=ray_color)
                     if solver.lower() in ['chief']:
                         ax.plot([0, z_int_mm[0]], [-h_obj, -y_init], linestyle=linestyle,color=ray_color)
@@ -328,7 +337,8 @@ class RayTracing(Surface,Glass,tools):
                 ax.plot(z_int_mm, -y_mm, linestyle=linestyle,color=ray_color)
         
         return fig, ax, Ray_Result
-    
+
+
     def Plot_System(self,fig=None, ax=None, n_rays:int=3, show_reference:bool=True,ST_Active:bool=True,show_obj:bool=False, show_img:bool=True, 
                     lens_layout:bool=True, linestyle:str='-', ray_color='r', ref_linestyle:str='--', ref_color:str='b',obj_col:str='orange', ref_obj_col:str='cyan', 
                     figsize=(10,4), Results=None, xscale:str='symlog',yscale:str='symlog',solver:str='default', intersection_method:str='distance', 
@@ -346,6 +356,7 @@ class RayTracing(Surface,Glass,tools):
                                                    y_mm=y_mm, h_obj=h_obj, FOV_deg=FOV_deg, chief_guess=chief_guess)
             self.h_obj=self.h_obj_copy
         return fig, ax, Ray_Result
+
 
     def _check_stop(self, result, Surfaces, dz=0, ST_Active:bool=False):
         surface_res= Surfaces.keys().values
@@ -408,7 +419,7 @@ class RayTracing(Surface,Glass,tools):
 
 
                 if abs(y_ap)> y_comp:
-                    # # print(11111)
+                    # # # print(11111)
                     z_int_mm= [i for i in z_int_mm if i <=z_ap]
                     surface_res= [surf_keys[w] for w,i in enumerate(z_int_mm) if i <=z_ap]
                     len_diff= len(surf_keys)- len(z_int_mm)
@@ -432,6 +443,96 @@ class RayTracing(Surface,Glass,tools):
             surface_res= [surf_keys[w] for w,i in enumerate(z_int_mm)]
 
         return z_int_mm, y_mm, surface_res
+    
+
+    def Check_Stop(self, result, Surfaces, dz=0, ST_Active:bool=False):
+        surface_res= Surfaces.keys().values
+        z_int_mm= cumsum(result.Z_int_mm.values)+dz
+        y_mm=result.Y_mm.values
+        U_rad=result.U_rad.values
+        func= interp1d(z_int_mm, y_mm)
+
+        z_mm= cumsum(result.Z_mm.tolist())+dz
+
+        STs=Surfaces.loc['stop',:][1:].tolist()
+        ST_sizes=Surfaces.loc['stop_size',:][1:].tolist()
+
+        surf_keys=(Surfaces.keys().tolist())[1:]
+        Z_ap= []
+        Ss= []
+
+        if ST_Active:
+            for j,(st,zap) in enumerate(zip(STs,z_mm)):
+                if st:
+                    Z_ap.append(zap) 
+                    Ss.append(Surfaces[surf_keys[j]])
+
+            for (S,z_ap) in zip(Ss, Z_ap):
+                R= S.radius
+                surface_name=S.surface_name
+                t= S.thickness
+                ap= S.aperture
+                mat= S.material
+                typ= S.type
+                k= S.conic
+                As= S.A_coefficient
+                ast= S.ast
+                stop= S.stop
+                stop_size= S.stop_size
+                
+                yyy= abs(R)-1e-10
+                if ap<abs(R):
+                    yyy= ap
+                if not any([(R<=0 and mat.lower()=='air'),(R>=0 and mat.lower()!='air')]):
+                    if typ=='asph':
+                        z_ap= self.sag_aspherical(yyy, R, k, As, z_ap)
+
+                    else:
+                        z_ap= self.sag_spherical(yyy, R, z_ap)
+
+                y_ap= func(z_ap)
+                if stop:
+                    if abs(stop_size)>abs(ap):
+                        if abs(ap)<abs(R):
+                            y_comp= abs(ap)
+                        else:
+                            y_comp= abs(R)-1e-10
+                    else:
+                        y_comp= abs(stop_size)
+                else:
+                    if abs(ap)<abs(R):
+                        y_comp= abs(ap)
+                    else:
+                        y_comp= abs(R)-1e-10
+
+
+                if abs(y_ap)> y_comp:
+                    surface_res= []
+                    z_res= []
+                    y_res= []
+                    u_res= []
+
+
+                    for (z_in, u,y, surf) in zip(z_int_mm, U_rad,y_mm ,surf_keys):
+                        if z_in<z_ap:
+                            surf_keys.append(surf)
+                            z_res.append(z_in)
+                            y_res.append(y)
+                            u_res.append(u)
+                        else:
+                            surf_keys.append(surf)
+                            z_res.append(z_in)
+                            y_res.append(nan)
+                            u_res.append(nan)
+                    y_mm= y_res
+                    U_rad= u_res
+                    result.loc[:, "Y_mm"] = y_mm
+                    result.loc[:, "U_rad"] = U_rad
+                    break
+                
+
+        return result
+
 
     def find_max_angle(self, tol=1e-6, ST_Active:bool=False):
         """
@@ -514,7 +615,7 @@ class RayTracing(Surface,Glass,tools):
                     # z_mm= cumsum(RT.Surfaces.loc['thickness', :].values)[:-1].tolist()
                     STs=Surfaces.loc['stop',:][1:].tolist()
                     ST_sizes=Surfaces.loc['stop_size',:][1:].tolist()
-                    # # print(ASTs)
+                    # # # print(ASTs)
                     surf_keys=(Surfaces.keys().tolist())[1:]
                     Z_ap= []
                     Ss= []
@@ -544,18 +645,18 @@ class RayTracing(Surface,Glass,tools):
                         stop_size= S.stop_size
                         
                         
-                        # # print(z_ap)
+                        # # # print(z_ap)
                         yyy= abs(R)-1e-10
                         if ap<abs(R):
                             yyy= ap
                         if not any([(R<=0 and mat.lower()=='air'),(R>=0 and mat.lower()!='air')]):
                             if typ=='asph':
                                 z_ap= self.sag_aspherical(yyy, R, k, As, z_ap)
-                                # # print(z_ap)
+                                # # # print(z_ap)
 
                             else:
                                 z_ap= self.sag_spherical(yyy, R, z_ap)
-                                # # print(z_ap)
+                                # # # print(z_ap)
 
                     
                         y_ap= func(z_ap)
@@ -671,7 +772,7 @@ class RayTracing(Surface,Glass,tools):
                     # z_mm= cumsum(RT.Surfaces.loc['thickness', :].values)[:-1].tolist()
                     STs=Surfaces.loc['stop',:][1:].tolist()
                     ST_sizes=Surfaces.loc['stop_size',:][1:].tolist()
-                    # # print(ASTs)
+                    # # # print(ASTs)
                     surf_keys=(Surfaces.keys().tolist())[1:]
                     Z_ap= []
                     Ss= []
@@ -701,18 +802,18 @@ class RayTracing(Surface,Glass,tools):
                         stop_size= S.stop_size
                         
                         
-                        # # print(z_ap)
+                        # # # print(z_ap)
                         yyy= abs(R)-1e-10
                         if ap<abs(R):
                             yyy= ap
                         if not any([(R<=0 and mat.lower()=='air'),(R>=0 and mat.lower()!='air')]):
                             if typ=='asph':
                                 z_ap= self.sag_aspherical(yyy, R, k, As, z_ap)
-                                # # print(z_ap)
+                                # # # print(z_ap)
 
                             else:
                                 z_ap= self.sag_spherical(yyy, R, z_ap)
-                                # # print(z_ap)
+                                # # # print(z_ap)
 
                     
                         y_ap= func(z_ap)
@@ -748,7 +849,7 @@ class RayTracing(Surface,Glass,tools):
     def find_AST(self, tol=1e-6, ST_Active:bool=False):
         Surfaces= self.Surfaces.copy(deep=True)
         if self.Obj2ENT<1e4:
-            # # print(1)
+            # # # print(1)
             
             max_angle, Result, Y_ap, S_ap,ERR_ap = self.find_max_angle(tol=tol,ST_Active=ST_Active)
 
@@ -756,14 +857,14 @@ class RayTracing(Surface,Glass,tools):
 
             Rays_Result= self._default_solver_systm(n_rays=1, u_rad=max_angle+1e-3,h_obj=0)
             if not ST_Active:
-                # # print(2)
-                # # print(Rays_Result[0].Y_mm.values)
-                # # print(Rays_Result[0].index.values)
+                # # # print(2)
+                # # # print(Rays_Result[0].Y_mm.values)
+                # # # print(Rays_Result[0].index.values)
                 # idx_ast= where(isnan(Rays_Result[0].Y_mm.values))[0][0]
                 # self.AST_surface= Rays_Result[0].index.values[int(idx_ast-1)]
                 _, y_mm, surfaces= self._check_stop( Rays_Result[0], Surfaces,ST_Active=ST_Active)
-                # # print(y_mm)
-                # # print(surfaces)
+                # # # print(y_mm)
+                # # # print(surfaces)
 
                 # idx_ast= int([i for i, y_nan in enumerate(isnan(y_mm)) if y_nan][0]-1)
                 # self.AST_surface= surfaces[int(idx_ast)]
@@ -778,7 +879,7 @@ class RayTracing(Surface,Glass,tools):
 
 
             else:
-                # # print(3)
+                # # # print(3)
                 _, y_mm, surfaces= self._check_stop( Rays_Result[0], Surfaces,ST_Active=ST_Active)
 
                 surfaces= list(surfaces)
@@ -786,84 +887,84 @@ class RayTracing(Surface,Glass,tools):
                     surfaces.remove('obj')
                 except: pass
                 surfaces= array(surfaces)
-                # # print(y_mm)
-                # # print(surfaces)
-                # # print([sur for i,(sur, yy_nan) in enumerate(zip(surfaces, isnan(y_mm))) if not yy_nan])
+                # # # print(y_mm)
+                # # # print(surfaces)
+                # # # print([sur for i,(sur, yy_nan) in enumerate(zip(surfaces, isnan(y_mm))) if not yy_nan])
 
                 # idx_ast= int([i for i, y_nan in enumerate(isnan(y_mm)) if y_nan][0]-1)
-                # # print(idx_ast)
+                # # # print(idx_ast)
                 self.AST_surface= [sur for i,(sur, yy_nan) in enumerate(zip(surfaces, isnan(y_mm))) if not yy_nan][-1]
                 # self.AST_surface= surfaces[-1]
             
             if self.AST_surface=='ent':
-                # # print(4)
+                # # # print(4)
                 if not Surfaces.ent.stop:
-                    # # print(5)
+                    # # # print(5)
                     self.AST_surface='surf2'
                 else:
-                    # # print(6)
+                    # # # print(6)
                     Rays_Result= self._default_solver_systm(n_rays=1, u_rad=max_angle,h_obj=0)
                     y_ent= Rays_Result[0].Y_mm.values[0]
                     y_surf2= Rays_Result[0].Y_mm.values[1]
                     err_ent=abs(abs(y_ent)-abs(Surfaces.ent.stop_size))
                     
                     if Surfaces.surf2.stop:
-                        # # print(7)
+                        # # # print(7)
                         err_surf2=abs(abs(y_surf2)-abs(Surfaces.surf2.stop_size))
                     else:
-                        # # print(8)
+                        # # # print(8)
                         err_surf2=abs(abs(y_surf2)-abs(Surfaces.surf2.aperture))
                     
                     if err_ent>err_surf2:
-                        # # print(9)
+                        # # # print(9)
                         self.AST_surface='surf2'
 
-            # # print(10)
+            # # # print(10)
             return self.AST_surface, max_angle
         
         else:
-            # # print(11)
+            # # # print(11)
             max_height, Result, Y_ap, S_ap, ERR_ap   = self.find_max_height_infinity(tol=tol,ST_Active=ST_Active)
             
             err= min(abs(abs(Surfaces.iloc[3,:].values[1:])-abs(Result[0].Y_mm.values)))
   
             Rays_Result= self._default_solver_systm(n_rays=1, y_mm=max_height+1e-3,h_obj=0)
             if not ST_Active:
-                # # print(12)
+                # # # print(12)
                 idx_ast= where(isnan(Rays_Result[0].Y_mm))[0][0]
                 self.AST_surface= Rays_Result[0].index.values[int(idx_ast-1)]
 
             else:
-                # # print(13)
+                # # # print(13)
                 _, y_mm, surfaces= self._check_stop( Rays_Result[0], Surfaces,ST_Active=ST_Active)
                 self.AST_surface= surfaces[-1]
 
 
             if self.AST_surface=='ent':
-                # # print(14)
+                # # # print(14)
                 if not Surfaces.ent.stop:
-                    # # print(15)
+                    # # # print(15)
                     self.AST_surface='surf2'
                 else:
-                    # # print(16)
+                    # # # print(16)
                     Rays_Result= self._default_solver_systm(n_rays=1, y_mm=max_height,h_obj=0)
                     y_ent= Rays_Result[0].Y_mm.values[0]
                     y_surf2= Rays_Result[0].Y_mm.values[1]
                     err_ent=abs(abs(y_ent)-abs(Surfaces.ent.stop_size))
                     
                     if Surfaces.surf2.stop:
-                        # # print(17)
+                        # # # print(17)
                         err_surf2=abs(abs(y_surf2)-abs(Surfaces.surf2.stop_size))
                     else:
-                        # # print(18)
+                        # # # print(18)
                         err_surf2=abs(abs(y_surf2)-abs(Surfaces.surf2.aperture))
                     
                     if err_ent>err_surf2:
-                        # # print(19)
+                        # # # print(19)
                         self.AST_surface='surf2'
 
         
-            # # print(20)
+            # # # print(20)
             return self.AST_surface, max_height
 
 
@@ -889,6 +990,7 @@ class RayTracing(Surface,Glass,tools):
         FOV_deg = rad2deg(FOV_rad)
         return FOV_deg
 
+
     def max_fov_deg(self):
         """
         Compute the maximum possible FOV (degrees) based on entrance pupil aperture.
@@ -911,6 +1013,7 @@ class RayTracing(Surface,Glass,tools):
         theta_max = arctan(y_max / L_obj)  # radians
         return degrees(theta_max)
 
+
     def chief_ray_guess(self, fov_deg):
         """
         Provide an initial guess for chief ray height at entrance pupil,
@@ -930,11 +1033,12 @@ class RayTracing(Surface,Glass,tools):
         y_max = self.Surfaces.surf2.aperture
 
         if abs(fov_deg) > max_fov:
-            print(f"⚠️ Warning: Requested FOV={fov_deg:.2f}° exceeds system limit {max_fov:.2f}°")
+            warn(f"⚠️ Warning: Requested FOV={fov_deg:.2f}° exceeds system limit {max_fov:.2f}°", UserWarning)
 
         # Scale guess linearly with ratio of requested FOV to max FOV
         y_guess = (fov_deg / max_fov) * y_max
         return y_guess
+
 
     def obj_height_from_FOV(self, FOV_deg):
         """
@@ -973,6 +1077,7 @@ class RayTracing(Surface,Glass,tools):
         y_obj = self.Obj2ENT* tan(FOV_rad)
         return y_obj
 
+
     def find_max_height_chief(self, fov_deg=10, marginal_ang_tol=1e-6, tol=1e-3, ST_Active: bool=False, chief_guess=0):
         """
         Find the entrance pupil ray height that produces the chief ray
@@ -993,13 +1098,13 @@ class RayTracing(Surface,Glass,tools):
         surf_keys = Surfaces.keys().values[1:]  # skip obj
         ast_idx = where(surf_keys == self.AST_surface)[0][0]
 
-        # # print(ast_idx)
+        # # # print(ast_idx)
         if ast_idx ==0:
             return 0, h_obj, 0
 
         if ast_idx ==1:
             u= arctan((0-h_obj)/(self.Obj2ENT+Surfaces.ent.thickness))
-            # # print(Surfaces.ent.thickness*tan(abs(u)))
+            # # # print(Surfaces.ent.thickness*tan(abs(u)))
             return Surfaces.ent.thickness*tan(abs(u)), h_obj, 0
 
         def ERR(y0, h_obj, n_rays=1, intersection_method='distance', tol=1e-10):
@@ -1016,7 +1121,7 @@ class RayTracing(Surface,Glass,tools):
                 if isnan(Result[0].Y_mm.values[-1]):
                     return 1e6  # heavy penalty
                 y_ast = Result[0].Y_mm.values[ast_idx]
-                # # print(y0, y_ast, h_obj)
+                # # # print(y0, y_ast, h_obj)
                 return y_ast**2  # squared error → smooth near 0
             except Exception:
                 return 1e6  # penalty on failure
@@ -1043,3 +1148,98 @@ class RayTracing(Surface,Glass,tools):
         return Y_res[argmin(err_res)], h_obj, err_res[argmin(err_res)]
 
 
+    def Gaussian_fiber_solver(self, n_rays:int, MFD_um=None, NA=None, r_core_um=None,method="deterministic",seed=None,
+                              intersection_method='distance', tol=1e-10):
+        self.h_obj_fiber, U_rad, self.weight_fiber= self.gaussian_fiber(n_rays=n_rays, MFD_um=MFD_um, NA=NA, r_core_um= r_core_um, method=method, seed=seed)
+        self.y_fiber= []
+        Rays_Result= []
+        for (h_obj, u_rad) in zip(self.h_obj_fiber, U_rad):
+            rays_result= self._default_solver_systm(1, intersection_method, tol, u_rad=u_rad, h_obj=h_obj)
+            y_mm = h_obj+ (tan(u_rad)*self.Obj2ENT)
+            Rays_Result.append(rays_result[0])
+            self.y_fiber.append(y_mm)        
+        return Rays_Result
+
+
+    def Gaussian_Rays_Solver(self, n_rays, w0_mm, z_mm=0.0, truncate_sigma=3.0, intersection_method='distance', method="deterministic", seed=None, tol=1e-10):    
+        
+        self.h_obj_gaussian, U_rad, self.weight_gaussian= self.gaussian_beam_rays(n_rays=n_rays,w0_mm=w0_mm, z_mm=z_mm, truncate_sigma=truncate_sigma, method=method, seed=seed)
+
+        self.y_gaussian= []
+        Rays_Result= []
+        for (h_obj, u_rad) in zip(self.h_obj_gaussian, U_rad):
+            rays_result= self._default_solver_systm(1, intersection_method, tol, u_rad=u_rad, h_obj=h_obj)
+            y_mm = h_obj+ (tan(u_rad)*self.Obj2ENT)
+            Rays_Result.append(rays_result[0])
+            self.y_gaussian.append(y_mm)
+
+        return Rays_Result
+
+
+    def plot_Gaussian_System(self,fig=None, ax=None, n_rays:int=3,ST_Active:bool=True,show_obj:bool=False, show_img:bool=True, 
+                    lens_layout:bool=True, linestyle:str='-', ray_color:str='r',obj_col:str='orange', figsize=(10,4), 
+                    xscale:str='symlog',yscale:str='symlog',solver:str='fiber', intersection_method:str='distance', 
+                    tol=1e-10, w0_mm:float=None, truncate_sigma_gaussian=1,MFD_um=None, NA=None, r_core_um=None, method="deterministic", seed=None):
+        
+        if lens_layout:
+            fig,ax= self.Lens_Layout(fig, ax,show_obj, show_img,ST_Active,obj_col, figsize, xscale=xscale, yscale=yscale)
+        elif fig==None or ax==None:
+            fig,ax= subplots(figsize=figsize, tight_layout=True)
+
+
+        if solver.lower() in ['fib', 'fiber', 'single-mode fiber', 'smf', 'multi-mode fiber', 'mmf']:
+            if NA==None and MFD_um==None: pass
+            else:
+                Ray_Result= self.Gaussian_fiber_solver(n_rays=n_rays, MFD_um=MFD_um, NA=NA, r_core_um=r_core_um, method=method, seed=seed, intersection_method=intersection_method, tol=tol)
+
+            H_obj= self.h_obj_fiber
+            Y_ent= self.y_fiber
+
+        if solver.lower() in ['gaussian', 'gauss', 'gauss ray']:
+            if w0_mm==None: pass
+
+            else:
+                Ray_Result= self.Gaussian_Rays_Solver(n_rays=n_rays, w0_mm=w0_mm, z_mm=0,truncate_sigma= truncate_sigma_gaussian, method=method, seed=seed, tol=tol)
+        
+            H_obj= self.h_obj_gaussian
+            Y_ent= self.y_gaussian
+
+
+
+        dz= self.Obj2ENT
+        if not show_obj:
+            dz=0
+        
+
+        for result, h_obj, y_ent in zip(Ray_Result, H_obj, Y_ent):
+            z_int_mm= cumsum(result.Z_int_mm.values)+dz
+            y_mm=result.Y_mm.values
+            if show_obj:
+                h_obj= self.h_obj
+                y_init= y_ent
+
+                ax.plot([0, z_int_mm[0]], [h_obj, y_init], linestyle=linestyle,color=ray_color)
+
+                
+###############################################
+            if ST_Active:
+                z_int_mm, y_mm,_= self._check_stop(result, self.Surfaces.copy(deep=True), dz,ST_Active=ST_Active)
+
+            
+            ax.plot(z_int_mm, y_mm, linestyle=linestyle,color=ray_color)
+            if solver.lower() in ['chief']:
+                ax.plot(z_int_mm, -y_mm, linestyle=linestyle,color=ray_color)
+        
+        return fig, ax, Ray_Result
+
+
+
+
+
+
+    # def parameter_optimizer(self,surfac1_idx:int, surface2_idx:int, parameter:str, y_target:str, solver:str='default', ST_Active:bool=False): 
+        
+    #     if parameter
+        
+        
+    #     Surfaces= self.Surfaces.copy(deep=True)

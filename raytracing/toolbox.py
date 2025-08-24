@@ -1,4 +1,4 @@
-from numpy import round, ones, argsort, cumsum, rad2deg, deg2rad, sqrt, inf,errstate, where,sign, nan, tan, array, dot, arccos, degrees,arctan, nan, full, isnan,vstack,linspace, isfinite,arcsin, argmin,random,linalg,clip, cos, sin
+from numpy import exp, round, ones, argsort, cumsum, rad2deg, deg2rad, sqrt, inf,errstate, where,sign, nan, tan, array, dot, arccos, degrees,arctan, nan, full, isnan,vstack,linspace, isfinite,arcsin, argmin,random,linalg,clip, cos, sin,pi, sqrt, arange
 from scipy.optimize import minimize,newton, brentq, least_squares
 from math import isclose
 from pandas import DataFrame,MultiIndex
@@ -6,7 +6,8 @@ from .surface_lib import Surface
 from .glass_lib import Glass
 from matplotlib.pyplot import subplots,show,grid
 from scipy.interpolate import interp1d
-
+from scipy.special import erfinv
+from scipy.stats import norm
 
 class tools:
     def __init__(self): pass
@@ -14,7 +15,8 @@ class tools:
 
     def transfer(self, y0,u0,z):
         return y0+(tan(u0)*z)
-    
+
+
     def sag_spherical(self, y:float,R:float, z_shift:float=0):
         """
         Compute the sag of an aspherical surface at height y.
@@ -38,7 +40,8 @@ class tools:
             return R-sqrt(R**2-y**2)+z_shift
         else:
             return R+sqrt(R**2-y**2)+z_shift
-        
+
+
     def sag_aspherical(self,y:float, R:float, k:float, A_list:list, z_shift:float=0):
         """
         Compute the sag of an aspherical surface at height y.
@@ -157,7 +160,6 @@ class tools:
             return True
         else:
             return False
-
 
 
     def _distance(self,y0, u0, z, R, surface_type, k, A_list, tol=1e-20, method='Nelder-Mead'):
@@ -288,8 +290,6 @@ class tools:
         return y_fit[argmin(ERR)], min(ERR)
 
 
-
-
     def _angle(self,y0, u0, z, R, surface_type, k, A_list, tol=1e-20, method='auto'):
 
         def SAG(y):
@@ -363,7 +363,6 @@ class tools:
             return nan, nan
 
         return y_res, err
-
 
 
     def _newton(self,y0, u0, z, R, surface_type, k, A_list, tol=1e-6, max_iter=1000):
@@ -487,7 +486,6 @@ class tools:
             return nan, nan
         
         return y_res, err
-
 
 
     def _trust_constr(self,y0, u0, z, R, surface_type, k, A_list, tol=1e-10):
@@ -719,6 +717,7 @@ class tools:
 
         return angle, slope
 
+
     def compute_u_incident2(self, y_int, u0, R, surface_type, k=0, A_list=[]):
             """
             Compute the angle between incoming ray and the normal to the surface (angle of incidence).
@@ -762,7 +761,8 @@ class tools:
                 return deg2rad(90)+u0-arctan(slope), slope
             else:
                 return (deg2rad(90)+u0-arctan(slope)-deg2rad(180)), slope
-    
+
+
     def Snell(self, u1, n1, n2):
         """
         Apply Snell's Law to compute the refraction angle at an interface.
@@ -852,4 +852,270 @@ class tools:
             u1= arctan(slope)+ur-deg2rad(90)+deg2rad(180)
 
         return y1, u1, z_int, err
+
+
+    # def gaussian_fiber(self,n_rays:int, MFD_um=None, NA=None, n_core=None, n_clad=None, r_core_NA=None, fiber_type="SMF"):
+    #     """
+    #     Generates deterministic 1D fiber rays.
+    #     Units:
+    #         - n_rays    : Number or rays
+    #         - MFD       : Mode field diameter in µm (Opition 1)
+    #         - NA        : Numerical aperture of the fiber (option 2), to generate rays via NA method r_core_NA, is needed to be passed too, you can pass the n_core and n_clad to calculate the NA (keep NA=None)
+    #         - n_core    : Refractive index of the core
+    #         - n_clad    : Refractive index of the clading
+    #         - r_core_NA : Core radius in µm
+    #         - fiber_type: type of the fiber, Single-Mode (SMF) or Multi-Mode (MMF)
+
+    #     Returns:
+    #         h_obj: Ray height in mm 
+    #         u_rad: Ray angle in rad
+    #     """
+    #     MFD=MFD_um
+    #     H_obj = []
+    #     U_rad = []
+
+    #     # Convert wavelength to mm for calculation
+    #     wavelength_mm = self.wl * 1e-3
+
+    #     if fiber_type.lower() == "smf":
+    #         if MFD is not None:
+    #             w0 = MFD* 1e-3 / 2.0  # mode radius in mm
+    #         else:
+    #             if r_core_NA is None:
+    #                 raise ValueError("Core radius 'r_core_NA' must be provided if MFD not given for SMF.")
+    #             if NA is None:
+    #                 if n_core is not None and n_clad is not None:
+    #                     NA = sqrt(n_core**2 - n_clad**2)
+    #                 else:
+    #                     raise ValueError("Either NA or (n_core and n_clad) must be provided for SMF if MFD not given.")
+    #             V = 2 * pi * r_core_NA*1e-3 / wavelength_mm * NA
+    #             w0 = r_core_NA*1e-3 * (0.65 + 1.619 / V**1.5 + 2.879 / V**6)
+
+    #         # Deterministic Gaussian sampling
+    #         u = (arange(n_rays) + 0.5) / n_rays
+    #         h_obj = w0 * sqrt(2) * erfinv(2*u - 1)       # mm
+    #         theta_div = wavelength_mm / (pi * w0)
+    #         u_rad = theta_div * sqrt(2) * erfinv(2*u - 1)  # rad
+
+    #     elif fiber_type.lower() == "mmf":
+    #         if r_core_NA is None:
+    #             raise ValueError("Core radius 'r_core_NA' must be provided for MMF.")
+    #         if NA is None:
+    #             if n_core is not None and n_clad is not None:
+    #                 NA = sqrt(n_core**2 - n_clad**2)
+    #             else:
+    #                 raise ValueError("Either NA or (n_core and n_clad) must be provided for MMF.")
+    #         h_obj = linspace(-r_core_NA, r_core_NA, n_rays)*1e-3  # mm
+    #         theta_max = arcsin(NA)
+    #         u_rad = linspace(-theta_max, theta_max, n_rays)  # rad
+
+    #     for i in range(n_rays):
+    #         H_obj.append(h_obj[i])
+    #         U_rad.append(u_rad[i])
+
+    #     return H_obj, U_rad
+
+
+
+    # def gaussian_beam_rays(self,n_rays, w0_mm, z_mm=0.0, truncate_sigma=1.0):
+    #     """
+    #     Generate deterministic Gaussian beam rays at any longitudinal position z
+    #     with truncated heights and divergence angle for a specified beam waist
+        
+    #     Parameters:
+    #         - n_rays         : Number of rays
+    #         - w0_mm             : Beam waist radius [mm]
+    #         - z_mm              : Longitudinal position [mm] (z=0 is waist)
+    #         - truncate_sigma : Truncation of Gaussian in sigma units (e.g., 1 sigma)
+                
+    #     Returns:
+    #         h_obj: Ray height in mm 
+    #         u_rad: Ray angle in rad
+    #     """
+    #     w0= w0_mm
+    #     z= z_mm
+    #     # Convert wavelength to mm
+    #     lam = self.wl * 1e-3
+        
+    #     # Rayleigh range
+    #     zR = pi * w0**2 / lam
+        
+    #     # Beam radius at z
+    #     w_z = w0 * sqrt(1 + (z/zR)**2)
+        
+    #     # Wavefront radius of curvature
+    #     Rz = inf if z == 0 else z * (1 + (zR/z)**2)
+        
+    #     # Gaussian standard deviations
+    #     sigma_h = w_z / sqrt(2)
+    #     sigma_theta = (lam/(pi*w0)) / sqrt(2)  # small divergence at waist
+        
+    #     # Truncate Gaussian in height
+    #     cdf_min = norm.cdf(-truncate_sigma*sigma_h, scale=sigma_h)
+    #     cdf_max = norm.cdf( truncate_sigma*sigma_h, scale=sigma_h)
+        
+    #     # Deterministic sampling in truncated CDF
+    #     u = linspace(cdf_min, cdf_max, n_rays)
+        
+    #     # Heights: truncated Gaussian
+    #     h_obj = sigma_h * sqrt(2) * erfinv(2*u - 1)
+        
+    #     # Angles: small divergence Gaussian
+    #     u_rad = sigma_theta * sqrt(2) * erfinv(2*u - 1)
+        
+    #     # Optionally: add wavefront curvature
+    #     if isfinite(Rz):
+    #         u_rad += h_obj / Rz  # correlates angle with wavefront curvature
+        
+    #     return h_obj, u_rad
+
+
+    def gaussian_fiber(self, n_rays, MFD_um=None, NA=None, r_core_um=None, method="deterministic", seed=None):
+        """
+        Generate SMF Gaussian rays using either MFD or NA+core radius.
+
+        Parameters
+        ----------
+        n_rays : int
+            Number of rays
+        wavelength_um : float
+            Wavelength [µm]
+        MFD_um : float, optional
+            Mode Field Diameter [µm]. If given, NA and r_core are ignored.
+        NA : float, optional
+            Numerical aperture of the fiber. Must provide r_core_um if MFD_um not given.
+        r_core_um : float, optional
+            Fiber core radius [µm] (needed if NA is used)
+        method : str
+            "deterministic" or "random"
+        seed : int or None
+            Seed for random sampling (only used if method="random")
+
+        Returns
+        -------
+        h_obj : ndarray
+            Ray heights [mm]
+        u_rad : ndarray
+            Ray angles [rad]
+        weights : ndarray
+            Gaussian weights normalized to sum = 1
+        """
+        wavelength_mm = self.wl * 1e-3  # convert to mm
+
+        # Determine mode radius w0
+        if MFD_um is not None:
+            w0 = MFD_um * 1e-3 / 2.0
+        elif NA is not None and r_core_um is not None:
+            r_core_mm = r_core_um * 1e-3
+            V = 2 * pi * r_core_mm / wavelength_mm * NA
+            w0 = r_core_mm * (0.65 + 1.619 / V**1.5 + 2.879 / V**6)
+        else:
+            raise ValueError("Either MFD_um or (NA and r_core_um) must be provided.")
+
+        # Gaussian divergence half-angle
+        theta_div = wavelength_mm / (pi * w0)
+
+        # Generate rays
+        if method.lower() == "deterministic":
+            u = (arange(n_rays) + 0.5) / n_rays
+            h_obj = w0 * sqrt(2) * erfinv(2*u - 1)
+            u_rad = theta_div * sqrt(2) * erfinv(2*u - 1)
+        elif method.lower() == "random":
+            rng = random.default_rng(seed)
+            h_obj = rng.normal(0, w0/sqrt(2), n_rays)
+            u_rad = rng.normal(0, theta_div/sqrt(2), n_rays)
+        else:
+            raise ValueError("method must be 'deterministic' or 'random'")
+
+        # Gaussian weights
+        weights = exp(-2 * (h_obj / w0)**2)
+        weights /= sum(weights)
+
+        return h_obj, u_rad, weights
+
+
+    def gaussian_beam_rays(self, n_rays, w0_mm, z_mm=0.0, truncate_sigma=3.0, method="deterministic", seed=None):
+        """
+        Generate Gaussian beam rays at any longitudinal position z with optional truncation.
+        Supports deterministic or random sampling and returns Gaussian weights.
+
+        Parameters
+        ----------
+        n_rays : int
+            Number of rays
+        w0_mm : float
+            Beam waist radius [mm]
+        wavelength_um : float
+            Wavelength [µm]
+        z_mm : float
+            Longitudinal position [mm] (z=0 is waist)
+        truncate_sigma : float
+            Truncation in sigma units
+
+            •	truncate_sigma = 1 → ±1σ   → ~68% of power
+            •	truncate_sigma = √2 → ±√2σ → ~86.5% of power
+	        •	truncate_sigma = 2 → ±2σ   → ~95% of power
+	        •	truncate_sigma = 3 → ±3σ   → ~99.7% of power
+
+        method : str
+            "deterministic" or "random"
+        seed : int or None
+            Seed for random sampling (only used if method="random")
+
+        Returns
+        -------
+        h_obj : ndarray
+            Ray heights [mm]
+        u_rad : ndarray
+            Ray angles [rad]
+        weights : ndarray
+            Gaussian weights normalized to sum = 1
+        """
+        lam_mm = self.wl * 1e-3
+
+        # Rayleigh range
+        zR = pi * w0_mm**2 / lam_mm
+
+        # Beam radius at z
+        w_z = w0_mm * sqrt(1 + (z_mm/zR)**2)
+
+        # Wavefront radius of curvature
+        Rz = inf if z_mm == 0 else z_mm * (1 + (zR/z_mm)**2)
+
+        # Standard deviations
+        sigma_h = w_z / sqrt(2)
+        sigma_theta = (lam_mm/(pi*w0_mm)) / sqrt(2)
+
+        # Generate heights and angles
+        if method.lower() == "deterministic":
+            # truncated CDF sampling
+            cdf_min = norm.cdf(-truncate_sigma*sigma_h, scale=sigma_h)
+            cdf_max = norm.cdf( truncate_sigma*sigma_h, scale=sigma_h)
+            u = linspace(cdf_min, cdf_max, n_rays)
+            h_obj = sigma_h * sqrt(2) * erfinv(2*u - 1)
+            u_rad = sigma_theta * sqrt(2) * erfinv(2*u - 1)
+        elif method.lower() == "random":
+            rng = random.default_rng(seed)
+            h_obj = rng.normal(0, sigma_h, n_rays)
+            # truncate if requested
+            if truncate_sigma > 0:
+                mask = abs(h_obj) > truncate_sigma * sigma_h
+                while any(mask):
+                    h_obj[mask] = rng.normal(0, sigma_h, sum(mask))
+                    mask = abs(h_obj) > truncate_sigma * sigma_h
+            u_rad = rng.normal(0, sigma_theta, n_rays)
+        else:
+            raise ValueError("method must be 'deterministic' or 'random'")
+
+        # Apply wavefront curvature
+        if isfinite(Rz):
+            u_rad += h_obj / Rz
+
+        # Gaussian weights based on height
+        weights = exp(-2 * (h_obj/w_z)**2)
+        weights /= sum(weights)
+
+        return h_obj, u_rad, weights
+
+
 
