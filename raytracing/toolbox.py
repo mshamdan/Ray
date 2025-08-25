@@ -1,4 +1,4 @@
-from numpy import exp, round, ones, argsort, cumsum, rad2deg, deg2rad, sqrt, inf,errstate, where,sign, nan, tan, array, dot, arccos, degrees,arctan, nan, full, isnan,vstack,linspace, isfinite,arcsin, argmin,random,linalg,clip, cos, sin,pi, sqrt, arange
+from numpy import conj, asarray, exp, round, ones, argsort, cumsum, rad2deg, deg2rad, sqrt, inf,errstate, where,sign, nan, tan, array, dot, arccos, degrees,arctan, nan, full, isnan,vstack,linspace, isfinite,arcsin, argmin,random,linalg,clip, cos, sin,pi, sqrt, arange
 from scipy.optimize import minimize,newton, brentq, least_squares
 from math import isclose
 from pandas import DataFrame,MultiIndex
@@ -1118,4 +1118,93 @@ class tools:
         return h_obj, u_rad, weights
 
 
+
+    def system_transmission(self,y_obj, y_entrance, y_image, model="one-fiber", weight_rays=None):
+        """
+        Compute system transmission S using your fiber and ray data.
+
+        Parameters
+        ----------
+        y_fib, u_fib : array-like
+            Rays leaving the source fiber [mm, rad]
+        y_ent, u_ent : array-like
+            Rays at the entrance pupil (NaN if blocked)
+        y_img, u_img : array-like
+            Rays at the image/fiber plane (NaN if blocked)
+        model : str
+            "two-fiber" or "one-fiber"
+        weight_rays : array-like, optional
+            Launch weights per ray. Default = equal weights.
+
+        Returns
+        -------
+        S : float
+            System transmission (0..1)
+        """
+        y_fib = asarray(y_obj)
+        y_ent = asarray(y_entrance)
+        y_img = asarray(y_image)
+        w_launch= weight_rays
+        
+        N = len(y_fib)
+        if w_launch is None:
+            w_launch = ones(N, dtype=float)
+        else:
+            w_launch = asarray(w_launch, dtype=float)
+        
+        # Masks
+        entered_pupil = ~isnan(y_ent)
+        reached_output = ~isnan(y_img)
+        
+        if model.lower() in ["two-fiber", "twofiber", "two-fib", "twofib", "2fib", "2-fib", "2-fiber", "2fiber", "2f","2-f", "2"]:
+            denom = sum(w_launch)
+        elif model.lower() in ["one-fiber", "onefiber", "one-fib", "onefib", "1fib", "1-fib", "1-fiber", "1fiber", "1f","1-f", "1"]:
+            denom = sum(w_launch[entered_pupil]) + 1e-30
+        else:
+            raise ValueError("model must be 'two-fiber' or 'one-fiber'")
+        
+        numer = sum(w_launch * entered_pupil * reached_output)
+        return numer / denom
+
+
+
+    def fiber_coupling_1D(self, y_img, u_img, wavelength_um, MFD_um, weight_rays=None):
+        """
+        h_img : array [mm]  (ray heights at image plane, may contain NaN for blocked rays)
+        u_img : array [rad] (ray angles at image plane, may contain NaN for blocked rays)
+        wavelength_um : float, wavelength in µm
+        MFD_um : float, mode field diameter of fiber in µm
+        weight_rays : array-like, optional Launch weights per ray. Default = equal weights.
+        """
+        # Mask out blocked rays
+        mask = ~isnan(y_img) & ~isnan(u_img)
+        y_img = asarray(y_img)[mask]
+        u_img = asarray(u_img)[mask]
+
+        if len(y_img) == 0:
+            return 0.0  # no rays reach fiber → no coupling
+
+        lam = wavelength_um * 1e-3   # [mm]
+        if lam <= 0:
+            raise ValueError("Wavelength must be > 0")
+        k = 2*pi/lam              # [1/mm]
+        w_f = (MFD_um/2) * 1e-3      # fiber mode radius [mm]
+
+        N = len(y_img)
+        if weight_rays is None:
+            w_launch = ones(N, dtype=float)
+        else:
+            w_launch = asarray(weight_rays, dtype=float)[mask]
+
+        # Beam field (phase tilt from ray angle)
+        E_beam = w_launch * exp(1j * k * u_img * y_img)
+
+        # Fiber Gaussian mode
+        E_fiber = exp(-(y_img**2)/(w_f**2))
+
+        # Overlap integral
+        num = abs(sum(E_beam * conj(E_fiber)))**2
+        denom = sum(abs(E_beam)**2) * sum(abs(E_fiber)**2)
+
+        return num/denom
 

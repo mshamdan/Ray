@@ -302,7 +302,7 @@ class Glass:
                     n.append(sqrt(self.Sellmeier3(wl, C[::2], C[1::2])))
 
                 elif formula_number==7:
-                    raise NotImplemented('the function not implemented yet')
+                    n.append(sqrt(self.Handbook1_formula(wl, *C)))
 
                 elif formula_number==8:
                     n.append(sqrt(self.Handbook2_formula(wl, *C)))

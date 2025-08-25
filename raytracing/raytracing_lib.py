@@ -1225,7 +1225,7 @@ class RayTracing(Surface,Glass,tools):
             if ST_Active:
                 z_int_mm, y_mm,_= self._check_stop(result, self.Surfaces.copy(deep=True), dz,ST_Active=ST_Active)
 
-            
+            # print(result)
             ax.plot(z_int_mm, y_mm, linestyle=linestyle,color=ray_color)
             if solver.lower() in ['chief']:
                 ax.plot(z_int_mm, -y_mm, linestyle=linestyle,color=ray_color)
