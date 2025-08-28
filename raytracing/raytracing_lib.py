@@ -437,9 +437,11 @@ class RayTracing(Surface,Glass,tools):
             
             if len(Z_ap)==0:
                 z_int_mm= [i for i,k in zip(z_int_mm, y_mm) if not isnan(k)]
+                y_mm= [k for i,k in zip(z_int_mm, y_mm) if not isnan(k)]
                 surface_res= [surf_keys[w] for w,i in enumerate(z_int_mm)]
         else:
             z_int_mm= [i for i,k in zip(z_int_mm, y_mm) if not isnan(k)]
+            y_mm= [k for i,k in zip(z_int_mm, y_mm) if not isnan(k)]
             surface_res= [surf_keys[w] for w,i in enumerate(z_int_mm)]
 
         return z_int_mm, y_mm, surface_res
@@ -1215,7 +1217,7 @@ class RayTracing(Surface,Glass,tools):
             z_int_mm= cumsum(result.Z_int_mm.values)+dz
             y_mm=result.Y_mm.values
             if show_obj:
-                h_obj= self.h_obj
+                h_obj= h_obj
                 y_init= y_ent
 
                 ax.plot([0, z_int_mm[0]], [h_obj, y_init], linestyle=linestyle,color=ray_color)
